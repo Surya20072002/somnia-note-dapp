@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Somnia Dapp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.5/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.1/dist/ethers.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { ethers } = window;
+
+    // Smart contract details - UPDATED WITH YOUR VALUES!
+    const contractAddress = "0x30D50bFFa9dED22EFcB6eeC787f7d1fcdDA92f3c";
+    const contractABI = [
+      {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "user",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "newMessage",
+            "type": "string"
+          }
+        ],
+        "name": "MessageSet",
+        "type": "event"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_newMessage",
+            "type": "string"
+          }
+        ],
+        "name": "setMessage",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getMyMessage",
+        "outputs": [
+          {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "message",
+        "outputs": [
+          {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "name": "userMessages",
+        "outputs": [
+          {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    const App = () => {
+      // State variables for the Dapp
+      const [walletAddress, setWalletAddress] = useState(null);
+      const [message, setMessage] = useState('');
+      const [storedMessage, setStoredMessage] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+
+      // Check for Ethereum provider and handle account changes
+      useEffect(() => {
+        if (window.ethereum) {
+          // Listen for account changes
+          window.ethereum.on('accountsChanged', (accounts) => {
+            if (accounts.length > 0) {
+              setWalletAddress(accounts[0]);
+              readMessage(accounts[0]);
+            } else {
+              setWalletAddress(null);
+              setStoredMessage('');
+            }
+          });
+          // Check for initial connection
+          window.ethereum.request({ method: 'eth_accounts' }).then((accounts) => {
+            if (accounts.length > 0) {
+              setWalletAddress(accounts[0]);
+              readMessage(accounts[0]);
+            }
+          });
+        }
+      }, []);
+
+      // Function to connect to the wallet
+      const connectWallet = async () => {
+        if (!window.ethereum) {
+          setError('MetaMask not found. Please install it to use this Dapp.');
+          return;
+        }
+        setLoading(true);
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const accounts = await provider.send('eth_requestAccounts', []);
+          setWalletAddress(accounts[0]);
+          readMessage(accounts[0]);
+        } catch (err) {
+          console.error(err);
+          setError('Could not connect to wallet. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Function to save the message to the blockchain
+      const saveMessage = async () => {
+        if (!walletAddress) {
+          setError('Please connect your wallet first.');
+          return;
+        }
+        if (!message) {
+          setError('Message cannot be empty.');
+          return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const contract = new ethers.Contract(contractAddress, contractABI, signer);
+          
+          const transaction = await contract.setMessage(message);
+          alert('Transaction sent. Awaiting confirmation...');
+          await transaction.wait(); // Wait for the transaction to be mined
+          
+          setStoredMessage(message); // Optimistically update the message
+          alert('Message saved successfully!');
+        } catch (err) {
+          console.error(err);
+          setError('Error saving message. Please check the console for details.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Function to read the message from the blockchain
+      const readMessage = async (address) => {
+        if (!address) return;
+        setLoading(true);
+        setError(null);
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const contract = new ethers.Contract(contractAddress, contractABI, provider);
+          
+          // Use the userMessages mapping to get the message for the connected address
+          const messageFromChain = await contract.userMessages(address);
+          setStoredMessage(messageFromChain);
+        } catch (err) {
+          console.error(err);
+          setError('Error reading message. Please ensure the contract address and network are correct.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-900 text-white p-8 font-sans flex items-center justify-center">
+          <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-lg">
+            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-4 text-center">
+              Somnia Dapp
+            </h1>
+            <p className="text-gray-400 mb-8 text-center">
+              Connect your wallet and store a message on the Somnia Network.
+            </p>
+
+            {!walletAddress ? (
+              <button
+                onClick={connectWallet}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md"
+                disabled={loading}
+              >
+                {loading ? 'Connecting...' : 'Connect Wallet'}
+              </button>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                  <span className="text-gray-400">Connected:</span>
+                  <span className="font-mono text-sm text-purple-300 truncate">
+                    {walletAddress}
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  <label htmlFor="message-input" className="block text-gray-300 font-medium">
+                    Write your message:
+                  </label>
+                  <textarea
+                    id="message-input"
+                    className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+                    rows="4"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Enter your message here..."
+                  ></textarea>
+                  <button
+                    onClick={saveMessage}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Save Message'}
+                  </button>
+                </div>
+
+                <hr className="border-gray-700" />
+                
+                <div className="bg-gray-700 p-4 rounded-lg space-y-2">
+                  <h3 className="text-xl font-bold text-gray-300">Your Stored Message:</h3>
+                  {storedMessage ? (
+                    <p className="text-lg text-white font-medium">{storedMessage}</p>
+                  ) : (
+                    <p className="text-gray-400 italic">No message found for this address.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="mt-6 text-center text-purple-400">
+                Processing transaction...
+              </div>
+            )}
+            
+            {error && (
+              <div className="mt-6 p-4 rounded-lg bg-red-900 text-red-200">
+                Error: {error}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
