@@ -13,6 +13,8 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
     
     body {
+      /* Added a fallback background color for when the image fails to load */
+      background-color: #1a202c; /* A dark color similar to bg-gray-900 */
       /* Updated with your permanent Cloudinary image URL */
       background-image: url('https://collection.cloudinary.com/dnrkvhmm3/fd11f568b7b50e5dbc6d6c215ac3cdf7'); 
       background-size: cover;
@@ -20,7 +22,7 @@
       background-attachment: fixed;
     }
 
-    /* Add a semi-transparent overlay for better text readability */
+    /* Added a semi-transparent overlay for better text readability */
     .bg-overlay {
       background-color: rgba(0, 0, 0, 0.7); /* Adjust the alpha value for transparency */
     }
@@ -269,4 +271,65 @@
               </button>
             ) : (
               <div className="space-y-6">
-                <div className="bg-gray-700 p-4 rounded-lg flex items-center just
+                <div className="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                  <span className="text-gray-400">Connected:</span>
+                  <span className="font-mono text-sm text-purple-300 truncate">
+                    {walletAddress}
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  <label htmlFor="message-input" className="block text-gray-300 font-medium">
+                    Write your message:
+                  </label>
+                  <textarea
+                    id="message-input"
+                    className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+                    rows="4"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Enter your message here..."
+                  ></textarea>
+                  <button
+                    onClick={saveMessage}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Save Message'}
+                  </button>
+                </div>
+
+                <hr className="border-gray-700" />
+                
+                <div className="bg-gray-700 p-4 rounded-lg space-y-2">
+                  <h3 className="text-xl font-bold text-gray-300">Your Stored Message:</h3>
+                  {storedMessage ? (
+                    <p className="text-lg text-white font-medium">{storedMessage}</p>
+                  ) : (
+                    <p className="text-gray-400 italic">No message found for this address.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="mt-6 text-center text-purple-400">
+                Processing transaction...
+              </div>
+            )}
+            
+            {error && (
+              <div className="mt-6 p-4 rounded-lg bg-red-900 text-red-200">
+                Error: {error}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
